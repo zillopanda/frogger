@@ -1,0 +1,388 @@
+<!--
+// I am committed to being a person of integrity.
+// This project is submitted as part of the assessment for Year 8 IST.
+// This is all my own work. I have referenced any work used from other
+// sources and have not plagiarised the work of others.
+// (signed) Alexander Phillips
+//
+// REFERENCES:
+// Sound Effects:   http://www.classicgaming.cc/classics/frogger/sounds
+// Info: 			https://www.w3schools.com/*
+//					https://stackoverflow.com/*
+
+*******************************
+**** DO NOT RUN IN IFRAME! ****
+*******************************
+-->
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Play Frogger Online</title>
+		<style>
+			html, body {
+				height: 100%;
+				margin: 0;
+			}
+			body {
+				background: grey;
+			}
+			canvas {
+				background: black;
+				margin: auto;
+				display: block;
+			}
+			input {
+				margin: auto;
+				display: block;
+			}
+		</style>
+		<script type="text/javascript" src="drawing.js"></script>
+		<link rel="icon" href="Frog.png">
+	</head>
+	<body onload="start();">
+		<input type="range" min="1" max="4" value="2" id="slider">
+		<canvas width="224*size" height="304*size" id="game" onClick="clicked()"></canvas>
+		<script>
+			function clicked() {
+				//Unfreeze the screen when you click
+				paused = false;
+			}
+			function getHiScore() {
+				//Read the cookies and make one if neccesary.
+				cookies = document.cookie.split("; ");
+				var result = "";
+				for (i=0;i<cookies.length;i=i+1) {
+					console.log(cookies[i]);
+					if (cookies[i].includes("hiscore")) {
+						var result = cookies[i].substring(8);
+					}
+				}
+				if (result == "") {
+					document.cookie = "hiscore=0; path=/";
+				}
+				result = parseInt(result);
+				console.log(result);
+				return result;
+			}
+			//Set a whole lot of variables
+			var paused = false;  //Is frozen
+			var hiScore = getHiScore();
+			var slider = document.getElementById("slider");
+			var frog = {X: 112, Y: 256, Rotation: "up"};
+			var size = 2;
+			var context;
+			var soundHop = new Audio('sound-frogger-hop.wav'); //The audio files
+			var soundSquash = new Audio('sound-frogger-squash.wav');
+			var soundWin = new Audio('sound-frogger-extra.wav');
+			var score = 0;
+			var time = 60;
+			var lives = 3;
+			var Car1 = new makeCar(1,240,'left',1);
+			var Car2 = new makeCar(2,224,'right',1.25);
+			var Car3 = new makeCar(3,208,'left',1.5);
+			var Car4 = new makeCar(4,192,'right',4);
+			var Car5 = new makeCar(5,176,'left',0.75);
+			var logSpeeds = [2,2,1,2,3];
+			var Log1 = new makeLog([0,96,192],80,4,"log",logSpeeds[0]);
+			var Log2 = new makeLog([0,64,128,192],96,2,"turtle",logSpeeds[1]);
+			var Log3 = new makeLog([0,160],112,6,"log",logSpeeds[2]);
+			var Log4 = new makeLog([0,96,192],128,3,"log",logSpeeds[3]);
+			var Log5 = new makeLog([0,80,176],144,3,"turtle",logSpeeds[4]);
+			var logs = [];
+			var cars = [];
+			var frogs = [];
+			slider.oninput = function() {
+				// Change size when slider moves
+				size = this.value;
+				var canvas = document.getElementById('game');
+				canvas.height=304*size;
+				canvas.width=224*size;
+			}
+			document.onkeydown = function(evt) {
+				// Call a function when a key is pressed
+				if (paused == false) {
+					if (evt.keyCode == 37) {
+						move("left");
+					}
+					if (evt.keyCode == 38) {
+						move("up");
+					}
+					if (evt.keyCode == 39) {
+						move("right");
+					}
+					if (evt.keyCode == 40) {
+						move("down");
+					}
+				}
+			};
+			function die() {
+				// reset the frog and play sound effect
+				frog = {X: 112, Y: 256, Rotation: "up"};
+				soundSquash.pause();
+				soundSquash.currentTime = 0;
+				soundSquash.play();
+				lives = lives-1;
+				time = 60;
+			}
+			function nextLevel() {
+				// reset the frogs up the top
+				frogs = [];
+				frog = {X: 112, Y: 256, Rotation: "up"};
+				time = 60;
+			}
+			function startOver() {
+				//When the user runs out of lives
+				paused = true;
+				frogs = [];
+				drawEnd();
+				frog = {X: 112, Y: 256, Rotation: "up"};
+				soundSquash.pause();
+				soundSquash.currentTime = 0;
+				soundSquash.play();
+				lives = 3;
+				score = 0;
+				time = 60;
+			}
+			function update() {
+				//update every tenth of a second
+				if (paused == false) {
+					DrawMap();
+					drawScore(0,16,score);
+					drawScore(144,16,hiScore);
+					time = time - 0.1;
+					DrawTime(time);
+					cars = [];
+					logs = [];
+					Car1.draw();
+					Car2.draw();
+					Car3.draw();
+					Car4.draw();
+					Car5.draw();
+					Log1.draw();
+					Log2.draw();
+					Log3.draw();
+					Log4.draw();
+					Log5.draw();
+					DrawFrog(frog.X,frog.Y,frog.Rotation);
+					for (i=0;i<frogs.length;i++) {
+						DrawFrog(frogs[i],64,"up");
+					}
+					if (lives < 0) {
+						startOver();
+					}
+					if (frogs.length == 4) {
+						nextLevel();
+					}
+					for (i=0;i<lives;i++) {
+						DrawFrog(i*16,272,"up");
+					}
+					checkCollisions();
+					hiScore = getHiScore();
+					if (score>hiScore) {
+						document.cookie = "hiscore=" + score + "; path=/";
+						hiScore = score;
+					}
+				}
+
+			}
+			function nextFrog() {
+				// check when frog reaches the top
+				if (frogs.includes(frog.X)) {
+					die()
+				} else {
+					frogs.push(frog.X);
+					frog = {X: 112, Y: 256, Rotation: "up"};
+					soundWin.pause();
+					soundWin.currentTime = 0;
+					soundWin.play();
+					score = score + 100;
+					score = score + 10*time;
+					time = 60;
+				}
+			}
+			function checkCollisions() {
+				//Check if the frog should die.
+				if (time <= 0) {
+					//If runns out of time
+					die();
+				}
+				if (frog.Y == 64) {
+					//If touches the top.
+					frog.X = Math.round(frog.X/16)*16;
+					console.log(frog.X);
+					if (frog.X==32 || frog.X==80 || frog.X==128 || frog.X==176) {
+						nextFrog();
+					} else {
+						die();
+					}
+				} else {
+					//Move the frog if it is on a log
+					if (frog.Y>144) {
+						frog.X = Math.round(frog.X/16)*16;
+						frog.Y = Math.round(frog.Y/16)*16;
+					} else {
+						if (frog.Y == 144) {
+							frog.X = frog.X - logSpeeds[4];
+						} if (frog.Y == 128) {
+							frog.X = frog.X + logSpeeds[3];
+						} if (frog.Y == 112) {
+							frog.X = frog.X + logSpeeds[2];
+						} if (frog.Y == 96) {
+							frog.X = frog.X - logSpeeds[1];
+						} if (frog.Y == 80) {
+							frog.X = frog.X + logSpeeds[0];
+						}
+						frog.X = Math.round(frog.X);
+						frog.Y = Math.round(frog.Y);
+					}
+				}
+
+				if (frog.X < 0) {
+					//Check if the frog goes off the screen
+					die();
+				}
+				if (frog.X >= 224) {
+					//Check if the frog goes off the screen
+					die();
+				}
+				if (frog.Y >= 272) {
+					//Check if the frog goes off the screen
+					frog.Y = 256;
+					score = score + 10;
+				}
+				var Cars = cars.toString();
+				if (Cars.includes([frog.X,frog.Y])) {
+					//Check if it is hit by a car
+					console.log("hit");
+					die();
+				}
+				if (frog.Y < 160) {
+					// Check if the frog is on a log
+					var hit = false;
+					for(i=0;i<logs.length;i=i+1) {
+						if (logs[i][0] == frog.X && logs[i][1] == frog.Y) {
+							hit = true;
+						}
+					}
+					if (hit==false) {
+						die();
+					}
+				}
+
+			}
+			function move(direction) {
+				//play sound and move frog when key pressed
+				soundHop.pause();
+				soundHop.currentTime = 0;
+				soundHop.play();
+				if (direction === "up") {
+					frog.Y = frog.Y-16;
+					score = score + 10;
+				} else if (direction === "down") {
+					frog.Y = frog.Y+16;
+					score = score - 10;
+				} else if (direction === "left") {
+					frog.X = frog.X-16;
+				} else if (direction === "right") {
+					frog.X = frog.X+16;
+				}
+				frog.Rotation = direction;
+			}
+			function start() {
+				//When the body loads, start the game
+				var canvas = document.getElementById('game');
+				canvas.height=304*size;
+				canvas.width=224*size;
+				context = canvas.getContext('2d');
+				var repeat = window.setInterval(function(){  
+					//call the update every tenth of a second
+					update();
+				}, 100);
+
+			}
+			function makeLog(xValues,yValue,length,type,speed) {
+				// object prototype to make logs
+				this.time = 0;
+				this.y = yValue;
+				this.speed = speed;
+				this.x = xValues;
+				this.type = type;
+				this.length = length;
+				this.draw = function() {
+					if (type == "turtle") {
+						//move left if turtle
+						for(var i=0;i<this.x.length;i++){
+							if (this.x[i] <= -16*this.length) {
+								this.x[i] = 224;
+							}
+							this.x[i] = this.x[i] - speed;
+						}
+					} else {
+						//move right if log
+						for(var i=-1;i<this.x.length;i++){
+							this.x[i] = this.x[i] + speed;
+							if (this.x[i] >= 224) {
+								this.x[i] = -16*this.length;
+							}
+						}
+					}
+					// add positions in logs
+					for(var i=0;i<this.x.length;i++){
+						for(var e=0;e<this.length*16;e=e+1) {
+							logs.push([Math.floor(this.x[i])+e-8,this.y]);
+						}
+					}
+					for(var i=-1;i<this.x.length;i++){
+						drawLog(this.x[i], this.y, this.length, this.type);
+					}
+				};
+			}
+			function makeCar(type,yValue,direction,speed) {
+				//object prototype to make car
+				this.y = yValue;
+				this.speed = speed;
+				this.direction = direction;
+				this.type = type;
+				// positoins of cars
+				if (this.type == 1){
+					this.x = [74, 149, 224];
+				} else if (this.type == 2){
+					this.x = [0, 48, 96];
+				} else if (this.type == 3){
+					this.x = [48, 112, 224];
+				} else if (this.type == 4){
+					this.x = [0];
+				} else if (this.type == 5){
+					this.x = [144, 224];
+				} 
+				this.draw = function() {
+					//draw the cars
+					if (direction == "left") {
+						for(var i=-1;i<this.x.length;i++){
+							if (this.x[i] <= -16) {
+								this.x[i] = 224;
+							}
+							this.x[i] = this.x[i] - speed;
+						}
+					} else {
+						for(var i=-1;i<this.x.length;i++){
+							this.x[i] = this.x[i] + speed;
+							if (this.x[i] >= 224) {
+								this.x[i] = -16;
+							}
+						}
+					}
+					//show where the cars are
+					for(var i=0;i<this.x.length;i++){
+						cars.push([Math.floor(this.x[i]/16)*16,this.y]);
+						cars.push([Math.floor(this.x[i]/16)*16+16,this.y]);
+					}
+					for(var i=-1;i<this.x.length;i++){
+						DrawCar(this.x[i], this.y, this.type);
+					}
+				};
+			}
+		</script>
+	</body>
+</html>
+

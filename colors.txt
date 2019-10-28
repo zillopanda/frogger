@@ -1,0 +1,13 @@
+Black: 		#000000
+White: 		#FFFFFF
+DarkBlue: 	#010341
+Red: 		#FA0E1B
+Green:		#30DF29
+Yellow:		#F4F536
+Blue:		#1B22F3
+Orange:		#EE481D
+Pink:		#FB39F7
+Purple:		#9324F5
+Cyan:		#2BDFF5
+LightBrown:	#E06D50
+DarkBrown:	#95674B
